@@ -177,6 +177,14 @@ async function runAgent(history, userMessage, context, userId) {
         - Course level: ${userPreferences.level}  
         - Job type: ${userPreferences.jobType}
         
+        LANGUAGE RULE — VERY IMPORTANT:
+        - ALWAYS respond in the user's preferred language: ${userPreferences.language}
+        - hindi → respond in Hindi only
+        - tamil → respond in Tamil only
+        - telugu → respond in Telugu only
+        - marathi → respond in Marathi only
+        - Do NOT mix languages unless user explicitly switches
+        
         IMPORTANT - Voice-friendly responses:
         - Keep responses SHORT (2-4 sentences max) — will be spoken aloud
         - NO bullet points, NO markdown — plain conversational text only

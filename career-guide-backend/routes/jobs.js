@@ -2,50 +2,104 @@ const express = require('express');
 const router = express.Router();
 
 router.post('/platforms', async (req, res) => {
-  const { career } = req.body;
+  const { career, careerType } = req.body;
   const q = encodeURIComponent(career);
   const slug = career.toLowerCase().replace(/\s+/g, '-');
 
-  const platforms = [
+  const allPlatforms = [
+    // Local / Blue collar
+    {
+      name: 'Apna App',
+      url: `https://apna.co/jobs?query=${q}`,
+      type: 'local',
+      tip: 'Hindi mein local jobs — seedha search karo aur apply karo',
+      forTypes: ['local', 'traditional'],
+      isLink: true
+    },
+    {
+      name: 'WorkIndia',
+      url: `https://www.workindia.in/job-search?search=${q}`,
+      type: 'local',
+      tip: 'Blue collar jobs, Hindi support — free mein register karo',
+      forTypes: ['local', 'traditional'],
+      isLink: true
+    },
+    {
+      name: 'JustDial',
+      url: `https://www.justdial.com/${slug}-jobs`,
+      type: 'local',
+      tip: 'Apne sheher ke local employers ko directly call karo',
+      forTypes: ['local', 'traditional'],
+      isLink: true
+    },
+    {
+      name: 'Urban Company',
+      url: `https://professionals.urbancompany.com/register`,
+      type: 'local',
+      tip: 'Beauty, cooking, cleaning — professional registration karo aur kaam pao',
+      forTypes: ['local', 'traditional'],
+      isLink: true
+    },
+    // Reselling / Gig
+    {
+      name: 'Meesho',
+      url: `https://supplier.meesho.com/registration`,
+      type: 'freelance',
+      tip: 'Seller registration — free mein shuru karo, koi investment nahi chahiye',
+      forTypes: ['freelance', 'local'],
+      isLink: true
+    },
+    // WhatsApp — tip card (no link)
+    {
+      name: 'WhatsApp Tip',
+      url: null,
+      type: 'freelance',
+      tip: `Apne 10 contacts ko WhatsApp pe message karo: "Main ${career} ka kaam karti hoon, koi kaam ho toh batana." Pehla customer wahi se milega!`,
+      forTypes: ['freelance', 'local'],
+      isLink: false,
+      isTip: true
+    },
+    // Professional / Digital
     {
       name: 'LinkedIn',
       url: `https://www.linkedin.com/jobs/search/?keywords=${q}`,
       type: 'full-time',
-      tip: 'दुनियाभर की नौकरियां, networking के लिए सबसे अच्छा'
-    },
-    {
-      name: 'Naukri',
-      url: `https://www.naukri.com/${slug}-jobs`,
-      type: 'full-time',
-      tip: 'भारत का नंबर 1 जॉब पोर्टल'
-    },
-    {
-      name: 'Internshala',
-      url: `https://internshala.com/internships/${slug}-internship`,
-      type: 'internship',
-      tip: 'Students के लिए best — internships और fresher jobs'
+      tip: 'Professional jobs — profile banao aur apply karo',
+      forTypes: ['professional', 'full-time'],
+      isLink: true
     },
     {
       name: 'Upwork',
-      url: `https://www.upwork.com/nx/search/jobs/?q=${q}`,
+      url: `https://www.upwork.com/freelancer/registration`,
       type: 'freelance',
-      tip: 'International freelance clients मिलेंगे'
+      tip: 'International clients — free registration, profile banao',
+      forTypes: ['freelance', 'professional'],
+      isLink: true
     },
     {
       name: 'Fiverr',
-      url: `https://www.fiverr.com/search/gigs?query=${q}`,
+      url: `https://www.fiverr.com/start_selling`,
       type: 'freelance',
-      tip: 'Gig-based काम, beginners के लिए भी अच्छा'
-    },
-    {
-      name: 'Freelancer',
-      url: `https://www.freelancer.in/jobs/${slug}/`,
-      type: 'freelance',
-      tip: 'Global projects पर bid करो'
+      tip: 'Apni service list karo aur orders pao — bilkul free',
+      forTypes: ['freelance', 'professional'],
+      isLink: true
     },
   ];
 
-  res.json({ platforms });
+  let filtered;
+  if (!careerType || careerType === 'any') {
+    filtered = allPlatforms.filter(p => ['local', 'freelance'].includes(p.type));
+  } else if (careerType === 'freelance') {
+    filtered = allPlatforms.filter(p => p.forTypes.includes('freelance'));
+  } else if (careerType === 'traditional') {
+    filtered = allPlatforms.filter(p => p.forTypes.includes('traditional') || p.forTypes.includes('local'));
+  } else if (careerType === 'professional') {
+    filtered = allPlatforms.filter(p => p.forTypes.includes('professional'));
+  } else {
+    filtered = allPlatforms.filter(p => p.type === 'local' || p.type === 'freelance');
+  }
+
+  res.json({ platforms: filtered });
 });
 
 module.exports = router;

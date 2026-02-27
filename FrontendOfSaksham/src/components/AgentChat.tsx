@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '@clerk/clerk-react';
+import { useLanguage, toBackendLanguage } from '../contexts/LanguageContext';
 import type { ChatMessage } from '../types';
 
 const API_BASE = 'http://localhost:5000/api';
@@ -9,27 +9,40 @@ const API_BASE = 'http://localhost:5000/api';
 interface AgentChatProps {
   selectedCareer: string;
   transcript?: string;
+  courses?: any[];
+  jobs?: any[];
+  schemes?: any[];
   onAction?: (action: string, payload?: any) => void;
+  onCoursesUpdate?: (courses: any[]) => void;
+  onJobsUpdate?: (jobs: any[]) => void;
+  onSchemesUpdate?: (schemes: any[]) => void;
 }
 
 type VoiceState = 'idle' | 'recording' | 'thinking' | 'speaking';
 
-export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatProps) {
+export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [], schemes = [], onAction, onCoursesUpdate, onJobsUpdate, onSchemesUpdate }: AgentChatProps) {
   const { language } = useLanguage();
+  const backendLang = toBackendLanguage(language);
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [history, setHistory] = useState<any[]>([]);
   const [statusText, setStatusText] = useState('Mic dabao aur bolo...');
+  const [autoListen, setAutoListen] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const autoListenRef = useRef(true); // auto-listen on by default
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    autoListenRef.current = autoListen;
+  }, [autoListen]);
 
   const playAudio = (base64Audio: string): Promise<void> => {
     return new Promise((resolve) => {
@@ -93,9 +106,10 @@ export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatPro
     try {
       const token = await getToken();
 
-      // Step 1: Transcribe
+      // Step 1: Transcribe — language pass karo
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('language', backendLang);
       const sttRes = await fetch(`${API_BASE}/speech/transcribe-only`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -114,7 +128,7 @@ export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatPro
       setMessages(prev => [...prev, { role: 'user', content: userText }]);
       setStatusText('Agent soch raha hai... 🤔');
 
-      // Step 2: Agent
+      // Step 2: Agent — language + current state pass karo
       const agentRes = await fetch(`${API_BASE}/agent/chat`, {
         method: 'POST',
         headers: {
@@ -124,7 +138,10 @@ export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatPro
         body: JSON.stringify({
           message: userText,
           history,
-          context: { selectedCareer, transcript },
+          context: { selectedCareer, transcript, language: backendLang },
+          courses,
+          jobs,
+          schemes,
         }),
       });
 
@@ -134,8 +151,15 @@ export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatPro
       setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
       setHistory(data.history);
 
-      // Step 3: UI action trigger karo
-      if (data.action && onAction) {
+      // Step 3: Update courses/jobs/schemes if agent fetched new ones
+      if (data.courses?.length > 0 && onCoursesUpdate) onCoursesUpdate(data.courses);
+      if (data.jobs?.length > 0 && onJobsUpdate) onJobsUpdate(data.jobs);
+      if (data.schemes?.length > 0 && onSchemesUpdate) onSchemesUpdate(data.schemes);
+
+      // Step 4: UI actions — process all
+      if (data.allUiActions?.length > 0 && onAction) {
+        data.allUiActions.forEach((a: any) => onAction(a.action, a.url ? { url: a.url } : undefined));
+      } else if (data.action && onAction) {
         onAction(data.action, data.actionPayload);
       }
 
@@ -146,8 +170,15 @@ export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatPro
         await playAudio(data.audio);
       }
 
-      setVoiceState('idle');
-      setStatusText('Mic dabao aur bolo...');
+      // Auto-listen — agent ke bolne ke baad mic auto on
+      if (autoListenRef.current) {
+        setStatusText('Sun rahi hoon... (band karne ke liye mic dabao)');
+        await new Promise(r => setTimeout(r, 500)); // thoda pause
+        startRecording();
+      } else {
+        setVoiceState('idle');
+        setStatusText('Mic dabao aur bolo...');
+      }
 
     } catch (err) {
       console.error('Voice processing error:', err);
@@ -230,6 +261,19 @@ export function AgentChat({ selectedCareer, transcript, onAction }: AgentChatPro
           {getMicIcon()}
         </button>
         <p className="text-sm text-gray-500 dark:text-gray-400 font-outfit text-center">{statusText}</p>
+        
+        {/* Auto-listen toggle */}
+        <button
+          onClick={() => setAutoListen(prev => !prev)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-outfit transition-all border ${
+            autoListen
+              ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
+              : 'bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-400'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${autoListen ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+          {autoListen ? 'Auto-listen ON' : 'Auto-listen OFF'}
+        </button>
       </div>
     </div>
   );

@@ -1,28 +1,27 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-export type Language = 'en' | 'hi';
+export type Language = 'hi' | 'ta' | 'te' | 'mr';
 
 interface LanguageContextType {
   language: Language;
-  toggleLanguage: () => void;
+  setLanguage: (lang: Language) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
+  const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('language');
-    return (saved as Language) || 'en';
+    return (saved as Language) || 'hi';
   });
 
-  const toggleLanguage = () => {
-    const newLang = language === 'en' ? 'hi' : 'en';
-    setLanguage(newLang);
-    localStorage.setItem('language', newLang);
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem('language', lang);
   };
 
   return (
-    <LanguageContext.Provider value={{ language, toggleLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -34,4 +33,15 @@ export function useLanguage() {
     throw new Error('useLanguage must be used within LanguageProvider');
   }
   return context;
+}
+
+// Helper — frontend language code → backend language name
+export function toBackendLanguage(lang: Language): string {
+  const map: Record<Language, string> = {
+    hi: 'hindi',
+    ta: 'tamil',
+    te: 'telugu',
+    mr: 'marathi',
+  };
+  return map[lang] || 'hindi';
 }

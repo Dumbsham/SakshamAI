@@ -33,7 +33,8 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
 // NEW route — sirf transcription, no Gemini (AgentChat voice loop ke liye)
 router.post('/transcribe-only', upload.single('audio'), async (req, res) => {
   try {
-    const transcript = await transcribeAudio(req.file.buffer);
+    const language = req.body.language || 'hindi';
+    const transcript = await transcribeAudio(req.file.buffer, language);
     res.json({ transcript });
   } catch (e) {
     console.error(e);

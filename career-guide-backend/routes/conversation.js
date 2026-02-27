@@ -7,11 +7,12 @@ const UserProfile = require('../models/UserProfile');
 const router = express.Router();
 const upload = multer();
 
-// AI starts conversation — first call
+// AI starts conversation
 router.get('/start', requireAuth(), async (req, res) => {
   try {
     const { userId } = getAuth(req);
-    const result = await startConversation(userId);
+    const language = req.query.language || 'hindi';
+    const result = await startConversation(userId, language);
     res.json(result);
   } catch (e) {
     console.error(e);
@@ -24,12 +25,10 @@ router.post('/turn', requireAuth(), upload.single('audio'), async (req, res) => 
   try {
     const { userId } = getAuth(req);
     const history = JSON.parse(req.body.history || '[]');
+    const language = req.body.language || 'hindi';
 
-    // Transcribe user audio (AWS Transcribe)
-    const transcript = await transcribeAudio(req.file.buffer);
-
-    // Process conversation turn (Bedrock + Polly inside)
-    const result = await processConversationTurn(userId, transcript, history);
+    const transcript = await transcribeAudio(req.file.buffer, language);
+    const result = await processConversationTurn(userId, transcript, history, language);
 
     res.json({ ...result, userTranscript: transcript });
   } catch (e) {

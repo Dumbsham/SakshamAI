@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage, toBackendLanguage } from '../contexts/LanguageContext';
 import { t } from '../i18n/translations';
 import { useAuth } from '@clerk/clerk-react';
 import { Mic, MicOff, ArrowRight, ArrowLeft, RotateCcw, ExternalLink, Youtube, Globe } from 'lucide-react';
@@ -29,6 +29,8 @@ export function CareerGuidePage() {
   const chunksRef = useRef<Blob[]>([]);
   const coursesRef = useRef<HTMLDivElement>(null);
   const jobsRef = useRef<HTMLDivElement>(null);
+
+  const backendLang = toBackendLanguage(language);
 
   const startRecording = async () => {
     try {
@@ -111,11 +113,11 @@ export function CareerGuidePage() {
       const [coursesRes, jobsRes] = await Promise.all([
         fetch(`${API_BASE}/courses/suggest`, {
           method: 'POST', headers,
-          body: JSON.stringify({ career: career.title }),
+          body: JSON.stringify({ career: career.title, language: backendLang }),
         }),
         fetch(`${API_BASE}/jobs/platforms`, {
           method: 'POST', headers,
-          body: JSON.stringify({ career: career.title }),
+          body: JSON.stringify({ career: career.title, careerType: career.type }),
         }),
       ]);
       const coursesData = await coursesRes.json();
@@ -144,7 +146,6 @@ export function CareerGuidePage() {
     setHighlightSection(null);
   };
 
-  // Agent se action aaya — UI update karo
   const handleAgentAction = (action: string, payload?: any) => {
     switch (action) {
       case 'scroll_to_courses':
@@ -152,23 +153,19 @@ export function CareerGuidePage() {
         coursesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => setHighlightSection(null), 2500);
         break;
-
       case 'scroll_to_jobs':
         setHighlightSection('jobs');
         jobsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => setHighlightSection(null), 2500);
         break;
-
       case 'open_url':
         if (payload?.url) window.open(payload.url, '_blank');
         break;
-
       case 'highlight_job':
         setHighlightSection('jobs');
         jobsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => setHighlightSection(null), 2500);
         break;
-
       default:
         break;
     }
@@ -187,19 +184,15 @@ export function CareerGuidePage() {
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
-                  step === i
-                    ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white scale-110'
-                    : step > i
-                    ? 'bg-green-500 text-white'
-                    : 'bg-white/50 dark:bg-white/10 text-gray-400 dark:text-gray-600'
+                  step === i ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white scale-110'
+                  : step > i ? 'bg-green-500 text-white'
+                  : 'bg-white/50 dark:bg-white/10 text-gray-400 dark:text-gray-600'
                 }`}>
                   {step > i ? '✓' : i + 1}
                 </div>
                 {i < 2 && (
                   <div className={`w-16 sm:w-24 h-1 mx-2 rounded-full transition-all ${
-                    step > i
-                      ? 'bg-gradient-to-r from-orange-500 to-pink-600'
-                      : 'bg-white/50 dark:bg-white/10'
+                    step > i ? 'bg-gradient-to-r from-orange-500 to-pink-600' : 'bg-white/50 dark:bg-white/10'
                   }`}></div>
                 )}
               </div>
@@ -209,7 +202,7 @@ export function CareerGuidePage() {
             {['step_0', 'step_1', 'step_2'].map((key, i) => (
               <span key={key} className={`text-sm font-medium ${
                 step === i ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400 dark:text-gray-600'
-              } ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+              } font-outfit`}>
                 {t(key as any, language)}
               </span>
             ))}
@@ -220,9 +213,7 @@ export function CareerGuidePage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 text-center shadow-2xl">
               <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className={`text-lg font-medium text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
-                {loadingMessage}
-              </p>
+              <p className="text-lg font-medium text-gray-900 dark:text-white font-outfit">{loadingMessage}</p>
             </div>
           </div>
         )}
@@ -265,10 +256,10 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language }: 
   return (
     <div className="animate-fadeUp">
       <div className="bg-white/70 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-black/5 dark:border-white/10 shadow-xl">
-        <h2 className={`text-2xl font-bold text-center mb-2 text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+        <h2 className="text-2xl font-bold text-center mb-2 text-gray-900 dark:text-white font-outfit">
           {t('voice_prompt', language)}
         </h2>
-        <p className={`text-center text-gray-600 dark:text-gray-400 mb-8 ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+        <p className="text-center text-gray-600 dark:text-gray-400 mb-8 font-outfit">
           {t('voice_subtext', language)}
         </p>
         <div className="flex flex-col items-center">
@@ -286,21 +277,21 @@ function Step0({ recordingState, onRecordClick, onSubmit, hasAudio, language }: 
               <Mic className="w-10 h-10 text-white mx-auto" />
             )}
           </button>
-          <p className={`mt-6 text-lg font-medium ${
+          <p className={`mt-6 text-lg font-medium font-outfit ${
             recordingState === 'recording' ? 'text-red-600 dark:text-red-400'
             : recordingState === 'ready' ? 'text-green-600 dark:text-green-400'
             : 'text-gray-600 dark:text-gray-400'
-          } ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+          }`}>
             {recordingState === 'recording' ? t('recording', language)
               : recordingState === 'ready' ? t('recording_ready', language)
               : 'Click to start'}
           </p>
           {hasAudio && (
             <div className="flex gap-3 mt-8">
-              <button onClick={onRecordClick} className={`px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+              <button onClick={onRecordClick} className="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-outfit">
                 {t('record_again', language)}
               </button>
-              <button onClick={onSubmit} className={`px-6 py-3 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 text-white font-medium hover:shadow-lg transition-all ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+              <button onClick={onSubmit} className="px-6 py-3 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 text-white font-medium hover:shadow-lg transition-all font-outfit">
                 {t('get_suggestions', language)} <ArrowRight className="inline w-4 h-4 ml-1" />
               </button>
             </div>
@@ -315,12 +306,12 @@ function Step1({ transcript, careers, onSelectCareer, onBack, language }: any) {
   return (
     <div className="animate-fadeUp space-y-6">
       <div className="bg-purple-500/10 dark:bg-purple-500/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
-        <p className={`text-sm font-medium text-purple-700 dark:text-purple-300 mb-2 ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+        <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-2 font-outfit">
           {t('you_said', language)}
         </p>
         <p className="text-gray-800 dark:text-gray-200 italic">"{transcript}"</p>
       </div>
-      <h2 className={`text-3xl font-bold text-center text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+      <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white font-outfit">
         {t('best_careers', language)}
       </h2>
       <div className="grid gap-4">
@@ -332,11 +323,11 @@ function Step1({ transcript, careers, onSelectCareer, onBack, language }: any) {
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 font-outfit">{career.title}</h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-3">{career.description}</p>
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium font-outfit ${
                   career.type.toLowerCase().includes('freelance')
                     ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                     : 'bg-green-500/10 text-green-600 dark:text-green-400'
-                } ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+                }`}>
                   {career.type.toLowerCase().includes('freelance') ? t('freelance', language) : t('job', language)}
                 </span>
               </div>
@@ -345,14 +336,14 @@ function Step1({ transcript, careers, onSelectCareer, onBack, language }: any) {
           </button>
         ))}
       </div>
-      <button onClick={onBack} className={`px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+      <button onClick={onBack} className="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-outfit">
         <ArrowLeft className="inline w-4 h-4 mr-1" /> {t('go_back', language)}
       </button>
     </div>
   );
 }
 
-function Step2({ selectedCareer, courses, jobs, onChangeCareer, onStartOver, language, transcript, highlightSection, coursesRef, jobsRef, onAgentAction }: any) {
+function Step2({ selectedCareer, courses, jobs, onChangeCareer, onStartOver, language, backendLang, transcript, highlightSection, coursesRef, jobsRef, onAgentAction }: any) {
   return (
     <div className="animate-fadeUp space-y-8">
       <div className="text-center">
@@ -361,16 +352,11 @@ function Step2({ selectedCareer, courses, jobs, onChangeCareer, onStartOver, lan
         </span>
       </div>
 
-      {/* Courses Section */}
-      <div
-        ref={coursesRef}
-        className={`transition-all duration-500 rounded-2xl p-1 ${
-          highlightSection === 'courses'
-            ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950'
-            : ''
-        }`}
-      >
-        <h2 className={`text-2xl font-bold mb-4 text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+      {/* Courses */}
+      <div ref={coursesRef} className={`transition-all duration-500 rounded-2xl p-1 ${
+        highlightSection === 'courses' ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''
+      }`}>
+        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white font-outfit">
           {t('learn_courses', language)}
         </h2>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -398,43 +384,52 @@ function Step2({ selectedCareer, courses, jobs, onChangeCareer, onStartOver, lan
         </div>
       </div>
 
-      {/* Jobs Section */}
-      <div
-        ref={jobsRef}
-        className={`transition-all duration-500 rounded-2xl p-1 ${
-          highlightSection === 'jobs'
-            ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950'
-            : ''
-        }`}
-      >
-        <h2 className={`text-2xl font-bold mb-4 text-gray-900 dark:text-white ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+      {/* Jobs */}
+      <div ref={jobsRef} className={`transition-all duration-500 rounded-2xl p-1 ${
+        highlightSection === 'jobs' ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''
+      }`}>
+        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white font-outfit">
           {t('get_hired', language)}
         </h2>
         <div className="grid sm:grid-cols-2 gap-4">
           {jobs.map((job: JobPlatform, idx: number) => (
-            <a key={idx} href={job.url} target="_blank" rel="noopener noreferrer"
-              className="group p-5 rounded-xl bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/5 dark:border-white/10 hover:border-green-500 dark:hover:border-green-500 transition-all hover:shadow-lg hover:-translate-y-1"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-2 font-outfit">{job.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{job.tip}</p>
-                  <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
-                    {job.type}
-                  </span>
+            job.isTip ? (
+              // WhatsApp tip card — no link, just advice
+              <div key={idx} className="p-5 rounded-xl bg-green-500/10 dark:bg-green-500/15 border border-green-500/30 dark:border-green-500/30">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">💬</span>
+                  <div>
+                    <h3 className="font-bold text-green-800 dark:text-green-300 mb-1 font-outfit">{job.name}</h3>
+                    <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">{job.tip}</p>
+                  </div>
                 </div>
-                <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-green-500 transition-colors flex-shrink-0" />
               </div>
-            </a>
+            ) : (
+              // Normal link card
+              <a key={idx} href={job.url} target="_blank" rel="noopener noreferrer"
+                className="group p-5 rounded-xl bg-white/70 dark:bg-white/5 backdrop-blur-sm border border-black/5 dark:border-white/10 hover:border-green-500 dark:hover:border-green-500 transition-all hover:shadow-lg hover:-translate-y-1"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-2 font-outfit">{job.name}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{job.tip}</p>
+                    <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
+                      {job.type}
+                    </span>
+                  </div>
+                  <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-green-500 transition-colors flex-shrink-0" />
+                </div>
+              </a>
+            )
           ))}
         </div>
       </div>
 
       <div className="flex gap-3">
-        <button onClick={onChangeCareer} className={`px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+        <button onClick={onChangeCareer} className="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-outfit">
           {t('change_career', language)}
         </button>
-        <button onClick={onStartOver} className={`px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all ${language === 'hi' ? 'font-hindi' : 'font-outfit'}`}>
+        <button onClick={onStartOver} className="px-6 py-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all font-outfit">
           <RotateCcw className="inline w-4 h-4 mr-1" /> {t('start_over', language)}
         </button>
       </div>

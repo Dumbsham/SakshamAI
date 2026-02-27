@@ -13,9 +13,11 @@ export interface Course {
 
 export interface JobPlatform {
   name: string;
-  url: string;
+  url: string | null;  // WhatsApp tip card mein null hoga
   type: string;
   tip: string;
+  isLink?: boolean;
+  isTip?: boolean;
 }
 
 export interface TranscribeResponse {

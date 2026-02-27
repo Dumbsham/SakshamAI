@@ -1,24 +1,38 @@
 const express = require('express');
 const { requireAuth, getAuth } = require('@clerk/express');
-const { runAgent } = require('../services/agent');
 const router = express.Router();
+
+const PYTHON_AGENT_URL = process.env.PYTHON_AGENT_URL || 'http://localhost:8000';
 
 router.post('/chat', requireAuth(), async (req, res) => {
   try {
     const { userId } = getAuth(req);
-    const { message, history = [], context = {} } = req.body;
+    const { message, history, context, courses, jobs, schemes } = req.body;
 
-    // Voice-first ke liye — message ko context mein bhi daalo
-    const enrichedContext = {
-      ...context,
-      lastMessage: message,
-      userId
-    };
+    // Forward to Python LangGraph agent
+    console.log('Calling Python agent at:', `${PYTHON_AGENT_URL}/chat`);
+    const response = await fetch(`${PYTHON_AGENT_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        history: history || [],
+        context: { ...context, userId },
+        courses: courses || [],
+        jobs: jobs || [],
+        schemes: schemes || [],
+      }),
+    });
 
-    const result = await runAgent(history, message, enrichedContext, userId);
-    res.json(result);
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Python agent error: ${err}`);
+    }
+
+    const data = await response.json();
+    res.json(data);
   } catch (e) {
-    console.error('Agent error:', e);
+    console.error('Agent route error:', e.message, e.cause);
     res.status(500).json({ error: e.message });
   }
 });
