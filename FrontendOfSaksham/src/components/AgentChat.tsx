@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Volume2, RefreshCw } from 'lucide-react';
 import { useAuth } from '@clerk/clerk-react';
 import { useLanguage, toBackendLanguage } from '../contexts/LanguageContext';
 import type { ChatMessage } from '../types';
@@ -16,11 +16,12 @@ interface AgentChatProps {
   onCoursesUpdate?: (courses: any[]) => void;
   onJobsUpdate?: (jobs: any[]) => void;
   onSchemesUpdate?: (schemes: any[]) => void;
+  onMoreCareers?: () => void; // callback to go back to career selection
 }
 
 type VoiceState = 'idle' | 'recording' | 'thinking' | 'speaking';
 
-export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [], schemes = [], onAction, onCoursesUpdate, onJobsUpdate, onSchemesUpdate }: AgentChatProps) {
+export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [], schemes = [], onAction, onCoursesUpdate, onJobsUpdate, onSchemesUpdate, onMoreCareers }: AgentChatProps) {
   const { language } = useLanguage();
   const backendLang = toBackendLanguage(language);
   const { getToken } = useAuth();
@@ -29,12 +30,14 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
   const [history, setHistory] = useState<any[]>([]);
   const [statusText, setStatusText] = useState('Mic dabao aur bolo...');
   const [autoListen, setAutoListen] = useState(true);
+  const [interrupted, setInterrupted] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const autoListenRef = useRef(true); // auto-listen on by default
+  const autoListenRef = useRef(true);
+  const interruptedRef = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,10 +51,19 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
     return new Promise((resolve) => {
       const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
       audioRef.current = audio;
+      interruptedRef.current = false;
       audio.onended = () => resolve();
       audio.onerror = () => resolve();
       audio.play().catch(() => resolve());
     });
+  };
+
+  const interruptAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      interruptedRef.current = true;
+    }
   };
 
   const startRecording = async () => {
@@ -95,10 +107,13 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
     } else if (voiceState === 'recording') {
       stopRecording();
     } else if (voiceState === 'speaking') {
-      audioRef.current?.pause();
-      audioRef.current = null;
-      setVoiceState('idle');
-      setStatusText('Mic dabao aur bolo...');
+      // Interrupt — agent ki audio band karo, turant recording shuru karo
+      interruptAudio();
+      setInterrupted(true);
+      setVoiceState('recording');
+      setStatusText('Bol raha/rahi ho... (dobara dabao rokne ke liye)');
+      startRecording();
+      setTimeout(() => setInterrupted(false), 2000);
     }
   };
 
@@ -106,7 +121,6 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
     try {
       const token = await getToken();
 
-      // Step 1: Transcribe — language pass karo
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
       formData.append('language', backendLang);
@@ -127,21 +141,16 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
 
       setMessages(prev => [...prev, { role: 'user', content: userText }]);
       setStatusText('Agent soch raha hai... 🤔');
+      setVoiceState('thinking');
 
-      // Step 2: Agent — language + current state pass karo
       const agentRes = await fetch(`${API_BASE}/agent/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           message: userText,
           history,
           context: { selectedCareer, transcript, language: backendLang },
-          courses,
-          jobs,
-          schemes,
+          courses, jobs, schemes,
         }),
       });
 
@@ -151,31 +160,42 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
       setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
       setHistory(data.history);
 
-      // Step 3: Update courses/jobs/schemes if agent fetched new ones
       if (data.courses?.length > 0 && onCoursesUpdate) onCoursesUpdate(data.courses);
       if (data.jobs?.length > 0 && onJobsUpdate) onJobsUpdate(data.jobs);
       if (data.schemes?.length > 0 && onSchemesUpdate) onSchemesUpdate(data.schemes);
 
-      // Step 4: UI actions — process all
       if (data.allUiActions?.length > 0 && onAction) {
         data.allUiActions.forEach((a: any) => onAction(a.action, a.url ? { url: a.url } : undefined));
       } else if (data.action && onAction) {
         onAction(data.action, data.actionPayload);
       }
 
-      // Step 4: Audio play
+      // Check if agent said "more careers" / "aur careers"
+      const msgLower = data.message?.toLowerCase() || '';
+      if (
+        onMoreCareers && (
+          msgLower.includes('aur career') ||
+          msgLower.includes('more career') ||
+          msgLower.includes('doosra career') ||
+          msgLower.includes('career badlo') ||
+          msgLower.includes('naya career')
+        )
+      ) {
+        setTimeout(() => onMoreCareers(), 2000);
+      }
+
       if (data.audio) {
         setVoiceState('speaking');
-        setStatusText('Agent bol raha hai... (dabao rokne ke liye)');
+        setStatusText('Agent bol raha hai... (interrupt karne ke liye mic dabao) 🛑');
         await playAudio(data.audio);
       }
 
-      // Auto-listen — agent ke bolne ke baad mic auto on
-      if (autoListenRef.current) {
+      // Auto-listen — only if not interrupted
+      if (autoListenRef.current && !interruptedRef.current) {
         setStatusText('Sun rahi hoon... (band karne ke liye mic dabao)');
-        await new Promise(r => setTimeout(r, 500)); // thoda pause
+        await new Promise(r => setTimeout(r, 400));
         startRecording();
-      } else {
+      } else if (!interruptedRef.current) {
         setVoiceState('idle');
         setStatusText('Mic dabao aur bolo...');
       }
@@ -191,14 +211,14 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
     switch (voiceState) {
       case 'recording': return 'bg-red-500 hover:bg-red-600 scale-110';
       case 'thinking':  return 'bg-yellow-500 cursor-not-allowed opacity-70';
-      case 'speaking':  return 'bg-green-500 hover:bg-green-600';
+      case 'speaking':  return 'bg-orange-500 hover:bg-red-500 animate-pulse';
       default:          return 'bg-gradient-to-r from-orange-500 to-pink-600 hover:shadow-lg hover:scale-105';
     }
   };
 
   const getMicIcon = () => {
     if (voiceState === 'recording') return <MicOff className="w-7 h-7 text-white" />;
-    if (voiceState === 'speaking')  return <Volume2 className="w-7 h-7 text-white animate-pulse" />;
+    if (voiceState === 'speaking')  return <Volume2 className="w-7 h-7 text-white" />;
     return <Mic className="w-7 h-7 text-white" />;
   };
 
@@ -218,6 +238,16 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
           <div className={`w-2 h-2 rounded-full animate-pulse ${getDotColor()}`}></div>
           <h3 className="font-bold text-gray-900 dark:text-white font-outfit">AI Career Guide 🎯</h3>
           <span className="ml-auto text-xs text-gray-500 dark:text-gray-400 font-outfit">{selectedCareer}</span>
+          {/* More Careers Button */}
+          {onMoreCareers && (
+            <button
+              onClick={onMoreCareers}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-600 dark:text-orange-400 text-xs font-medium font-outfit transition-all"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Aur Careers
+            </button>
+          )}
         </div>
       </div>
 
@@ -249,6 +279,11 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
             </div>
           </div>
         )}
+        {interrupted && (
+          <div className="flex justify-center">
+            <span className="text-xs text-orange-500 font-outfit animate-pulse">⚡ Interrupted</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -261,7 +296,7 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
           {getMicIcon()}
         </button>
         <p className="text-sm text-gray-500 dark:text-gray-400 font-outfit text-center">{statusText}</p>
-        
+
         {/* Auto-listen toggle */}
         <button
           onClick={() => setAutoListen(prev => !prev)}

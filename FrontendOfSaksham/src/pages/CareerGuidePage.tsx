@@ -341,10 +341,9 @@ function Step2({ selectedCareer, courses, jobs, schemes, onSchemesUpdate, onCour
       {schemes.length > 0 && (
         <div ref={schemesRef} className={`transition-all duration-500 rounded-2xl p-1 ${highlightSection === 'schemes' ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-950' : ''}`}>
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🏛️</span>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-outfit">Sarkar ki Madad</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-outfit">{t('govt_schemes', language)}</h2>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 font-outfit">Ye government schemes aapke liye helpful ho sakti hain</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 font-outfit">{t('govt_schemes_sub', language)}</p>
           <div className="grid sm:grid-cols-2 gap-4">
             {schemes.map((scheme: GovtScheme, idx: number) => (
               <a key={idx} href={scheme.url} target="_blank" rel="noopener noreferrer"
@@ -368,7 +367,7 @@ function Step2({ selectedCareer, courses, jobs, schemes, onSchemesUpdate, onCour
       {schemes.length === 0 && (
         <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20 border-dashed text-center">
           <p className="text-sm text-yellow-700 dark:text-yellow-400 font-outfit">
-            🏛️ Agent se pucho <span className="font-semibold">"Sarkar ki koi yojana hai?"</span> — govt schemes dikhega!
+            {t('govt_schemes_hint', language)}
           </p>
         </div>
       )}
@@ -423,6 +422,7 @@ function Step2({ selectedCareer, courses, jobs, schemes, onSchemesUpdate, onCour
         onCoursesUpdate={onCoursesUpdate}
         onJobsUpdate={onJobsUpdate}
         onSchemesUpdate={onSchemesUpdate}
+        onMoreCareers={onChangeCareer}
       />
     </div>
   );

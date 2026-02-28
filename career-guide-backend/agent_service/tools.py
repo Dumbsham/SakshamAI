@@ -118,12 +118,13 @@ def get_filtered_jobs(career: str, job_type: str = "local", education_level: str
     return {"platforms": platforms, "action": "show_jobs"}
 
 @tool
-def get_govt_schemes(career: str, education_level: str = "any") -> dict:
+def get_govt_schemes(career: str, education_level: str = "any", language: str = "hindi") -> dict:
     """
     Get relevant government schemes for the user's specific career using Gemini.
     Args:
         career: Career name e.g. 'Tailor', 'Web Developer', 'Beauty Expert', 'Teacher'
         education_level: padha nahi, 5th tak, 10th tak, 12th/college, any
+        language: hindi, tamil, telugu, marathi, english
     """
     import re
     from langchain_google_vertexai import ChatVertexAI
@@ -145,22 +146,27 @@ def get_govt_schemes(career: str, education_level: str = "any") -> dict:
             temperature=0.1,
         )
 
-        prompt = f"""You are an expert on Indian government schemes for women.
-Find the 4 most relevant government schemes for a woman working as: {career}
-Education level: {education_level}
+        lang_instruction = {
+        "hindi": "Respond with name, benefit, eligibility fields in Hindi language",
+        "tamil": "Respond with name, benefit, eligibility fields in Tamil language",
+        "telugu": "Respond with name, benefit, eligibility fields in Telugu language",
+        "marathi": "Respond with name, benefit, eligibility fields in Marathi language",
+        "english": "Respond with name, benefit, eligibility fields in English",
+    }.get(language, "Respond in Hindi")
 
-Return ONLY a valid JSON array, no extra text:
-[
-  {{
-    "name": "Scheme name",
-    "benefit": "What she gets — money, training, loan amount etc",
-    "eligibility": "Who can apply",
-    "url": "Official government URL"
-  }}
-]
-
-Use only real government URLs: pmvishwakarma.gov.in, pmkvyofficial.org, mudra.org.in, startupindia.gov.in, skillindiadigital.gov.in, myscheme.gov.in
-Focus on schemes most relevant to {career} profession."""
+        prompt = (
+            "You are an expert on Indian government schemes for women.\n"
+            f"Find the 4 most relevant government schemes for a woman working as: {career}\n"
+            f"Education level: {education_level}\n\n"
+            f"IMPORTANT: {lang_instruction}\n"
+            "Only keep the URL in English (government URLs must stay in English).\n\n"
+            "Return ONLY a valid JSON array, no extra text:\n"
+            "[{ \"name\": \"Scheme name\", \"benefit\": \"benefit\", "
+            "\"eligibility\": \"eligibility\", \"url\": \"url\" }]\n\n"
+            "Use only real URLs: pmvishwakarma.gov.in, pmkvyofficial.org, "
+            "mudra.org.in, startupindia.gov.in, skillindiadigital.gov.in\n"
+            f"Focus on schemes most relevant to {career} profession."
+        )
 
         from langchain_core.messages import HumanMessage
         response = llm.invoke([HumanMessage(content=prompt)])

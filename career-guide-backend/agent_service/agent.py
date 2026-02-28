@@ -15,7 +15,6 @@ from tools import ALL_TOOLS
 
 load_dotenv()
 
-# GCP credentials for TTS/STT
 creds_dict = json.loads(os.getenv("GCP_CREDENTIALS_JSON"))
 credentials = service_account.Credentials.from_service_account_info(
     creds_dict,
@@ -84,7 +83,7 @@ class AgentState(TypedDict):
     ui_actions: list
     education_level: str
 
-SYSTEM_PROMPTS = {
+LANG_INSTRUCTIONS = {
     "hindi":   "हमेशा हिंदी में जवाब दो। छोटे, warm जवाब — 2-3 वाक्य। Markdown मत use करो।",
     "tamil":   "எப்போதும் தமிழில் பதில் சொல்லுங்கள். சுருக்கமாக 2-3 வாக்கியங்கள்.",
     "telugu":  "ఎల్లప్పుడూ తెలుగులో సమాధానం చెప్పండి. 2-3 వాక్యాలు మాత్రమే.",
@@ -98,35 +97,45 @@ def make_llm():
         project=GOOGLE_PROJECT_ID,
         location="us-central1",
         credentials=credentials,
-        temperature=0.3,
-    ).bind_tools(ALL_TOOLS)
+        temperature=0.1,  # lower = more deterministic tool calling
+    ).bind_tools(ALL_TOOLS, tool_choice="auto")
 
 def agent_node(state: AgentState):
     language = state.get("language", "hindi")
-    lang_instruction = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["hindi"])
-    
+    selected_career = state.get("selected_career", "")
+    user_transcript = state.get("user_transcript", "")
+    education_level = state.get("education_level", "padha nahi")
+    lang_instruction = LANG_INSTRUCTIONS.get(language, LANG_INSTRUCTIONS["hindi"])
+
     system_content = f"""You are a warm AI career counselor for Indian women.
 {lang_instruction}
 
-Selected career: {state.get('selected_career', '')}
-User background: {state.get('user_transcript', '')}
+Selected career: {selected_career}
+User background: {user_transcript}
+Education level: {education_level}
 
-TOOL RULES — always execute tools, never just say you will:
-- User asks about courses/learning/sikhna → call get_filtered_courses, then trigger_ui_action with action=scroll_to_courses
-- User asks about jobs/kaam/naukri → call get_filtered_jobs, then trigger_ui_action with action=scroll_to_jobs
-- User asks about govt schemes/yojana/madad → call get_govt_schemes, then trigger_ui_action with action=scroll_to_schemes
-- User says open/dikhao specific website → call trigger_ui_action with action=open_url
-- ALWAYS call the tool — never just describe what you would do"""
+CRITICAL TOOL RULES — you MUST call tools, NEVER just describe what you will do:
 
-    # Build messages — filter out empty content
+1. User says jobs/kaam/naukri/rojgar/placement → IMMEDIATELY call get_filtered_jobs(career="{selected_career}", job_type="local", education_level="{education_level}"), THEN call trigger_ui_action(action="scroll_to_jobs")
+
+2. User says courses/seekhna/sikhna/training/padhai → IMMEDIATELY call get_filtered_courses(career="{selected_career}", language="{language}"), THEN call trigger_ui_action(action="scroll_to_courses")
+
+3. User says schemes/yojana/sarkar/madad/loan/government → IMMEDIATELY call get_govt_schemes(career="{selected_career}", language="{language}"), THEN call trigger_ui_action(action="scroll_to_schemes")
+
+4. User says koi website/link/kholo → call trigger_ui_action(action="open_url", url="<url>")
+
+IMPORTANT: After calling tools, give a SHORT confirmation in {language} — do NOT list the results yourself, they are shown in UI automatically.
+Example: User says "jobs dikhao" → call get_filtered_jobs → call trigger_ui_action → then say "Jobs screen pe dikh rahi hain! 👆"
+"""
+
     messages = [SystemMessage(content=system_content)]
     for msg in state["messages"]:
         if hasattr(msg, 'content') and msg.content:
             messages.append(msg)
-        elif hasattr(msg, 'tool_calls'):
-            messages.append(msg)  # AI tool call messages
+        elif hasattr(msg, 'tool_calls') and msg.tool_calls:
+            messages.append(msg)
         elif isinstance(msg, ToolMessage):
-            messages.append(msg)  # Tool results
+            messages.append(msg)
 
     llm = make_llm()
     response = llm.invoke(messages)
@@ -151,7 +160,7 @@ def tool_node_with_state(state: AgentState):
                     new_jobs = data["platforms"]
                 if "schemes" in data:
                     new_schemes = data["schemes"]
-                if data.get("triggered"):
+                if data.get("action"):
                     new_ui_actions.append({
                         "action": data["action"],
                         "url": data.get("url")
