@@ -39,9 +39,11 @@ export function Header() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Saksham Logo"
+              className="w-10 h-10 object-contain group-hover:scale-105 transition-transform drop-shadow-md"
+            />
             <div className="flex flex-col">
               <span className="font-outfit font-bold text-lg bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
                 Saksham

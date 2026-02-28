@@ -1,7 +1,6 @@
 import os
 import json
 import urllib.parse
-from googleapiclient.discovery import build
 from langchain_core.tools import tool
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -121,73 +120,67 @@ def get_filtered_jobs(career: str, job_type: str = "local", education_level: str
 @tool
 def get_govt_schemes(career: str, education_level: str = "any") -> dict:
     """
-    Get relevant government schemes for a career/skill.
+    Get relevant government schemes for the user's specific career using Gemini.
     Args:
-        career: Career name
+        career: Career name e.g. 'Tailor', 'Web Developer', 'Beauty Expert', 'Teacher'
         education_level: padha nahi, 5th tak, 10th tak, 12th/college, any
     """
-    all_schemes = [
-        {
-            "name": "PM Vishwakarma Yojana",
-            "benefit": "Free skill training + ₹15,000 toolkit + ₹3 lakh loan at 5% interest",
-            "eligibility": "Artisans and craftspeople",
-            "url": "https://pmvishwakarma.gov.in",
-            "forCareers": ["tailor", "silai", "beauty", "carpenter", "potter", "weaver"]
-        },
-        {
-            "name": "Pradhan Mantri Kaushal Vikas Yojana (PMKVY)",
-            "benefit": "Free skill training + certificate + ₹8,000 reward",
-            "eligibility": "10th pass preferred, but open to all",
-            "url": "https://www.pmkvyofficial.org",
-            "forCareers": ["any"]
-        },
-        {
-            "name": "Startup India - Women Entrepreneurs",
-            "benefit": "Business registration support + mentorship + funding access",
-            "eligibility": "Women starting their own business",
-            "url": "https://www.startupindia.gov.in",
-            "forCareers": ["business", "entrepreneur", "freelance", "any"]
-        },
-        {
-            "name": "MUDRA Loan - Shishu Scheme",
-            "benefit": "Up to ₹50,000 loan without collateral to start business",
-            "eligibility": "Anyone starting a small business",
-            "url": "https://www.mudra.org.in",
-            "forCareers": ["any"]
-        },
-        {
-            "name": "Skill India Digital",
-            "benefit": "Free online courses in 500+ skills with certificates",
-            "eligibility": "Open to all",
-            "url": "https://www.skillindiadigital.gov.in",
-            "forCareers": ["any"]
-        },
-        {
-            "name": "PM SVANidhi (Street Vendor Loan)",
-            "benefit": "₹10,000-₹50,000 loan for street vendors and small sellers",
-            "eligibility": "Small vendors and home-based sellers",
-            "url": "https://pmsvanidhi.mohua.gov.in",
-            "forCareers": ["vendor", "seller", "meesho", "reselling", "any"]
-        }
+    import re
+    from langchain_google_vertexai import ChatVertexAI
+    from google.oauth2 import service_account
+    import google.auth
+
+    try:
+        creds_dict = json.loads(os.getenv("GCP_CREDENTIALS_JSON"))
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_dict,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+
+        llm = ChatVertexAI(
+            model="gemini-2.0-flash-001",
+            project=os.getenv("GOOGLE_PROJECT_ID"),
+            location="us-central1",
+            credentials=credentials,
+            temperature=0.1,
+        )
+
+        prompt = f"""You are an expert on Indian government schemes for women.
+Find the 4 most relevant government schemes for a woman working as: {career}
+Education level: {education_level}
+
+Return ONLY a valid JSON array, no extra text:
+[
+  {{
+    "name": "Scheme name",
+    "benefit": "What she gets — money, training, loan amount etc",
+    "eligibility": "Who can apply",
+    "url": "Official government URL"
+  }}
+]
+
+Use only real government URLs: pmvishwakarma.gov.in, pmkvyofficial.org, mudra.org.in, startupindia.gov.in, skillindiadigital.gov.in, myscheme.gov.in
+Focus on schemes most relevant to {career} profession."""
+
+        from langchain_core.messages import HumanMessage
+        response = llm.invoke([HumanMessage(content=prompt)])
+        text = response.content
+
+        json_match = re.search(r'\[.*?\]', text, re.DOTALL)
+        if json_match:
+            schemes = json.loads(json_match.group())
+            return {"schemes": schemes[:4], "action": "show_schemes"}
+    except Exception as e:
+        print(f"Gemini schemes error: {e}")
+
+    # Fallback — universal schemes
+    fallback = [
+        {"name": "PM Kaushal Vikas Yojana (PMKVY)", "benefit": "Free skill training + certificate + ₹8,000 reward", "eligibility": "Open to all", "url": "https://www.pmkvyofficial.org"},
+        {"name": "MUDRA Loan - Shishu", "benefit": "Up to ₹50,000 loan without collateral", "eligibility": "Anyone starting small business", "url": "https://www.mudra.org.in"},
+        {"name": "Skill India Digital", "benefit": "Free online courses in 500+ skills", "eligibility": "Open to all", "url": "https://www.skillindiadigital.gov.in"},
+        {"name": "Startup India - Women", "benefit": "Mentorship + funding access + business support", "eligibility": "Women entrepreneurs", "url": "https://www.startupindia.gov.in"},
     ]
-
-    career_lower = career.lower()
-    relevant = []
-    for scheme in all_schemes:
-        if "any" in scheme["forCareers"]:
-            relevant.append(scheme)
-        elif any(keyword in career_lower for keyword in scheme["forCareers"]):
-            relevant.insert(0, scheme)  # relevant ones first
-
-    # Deduplicate
-    seen = set()
-    unique = []
-    for s in relevant:
-        if s["name"] not in seen:
-            seen.add(s["name"])
-            unique.append(s)
-
-    return {"schemes": unique[:4], "action": "show_schemes"}
+    return {"schemes": fallback, "action": "show_schemes"}
 
 @tool  
 def trigger_ui_action(action: str, url: str = None) -> dict:

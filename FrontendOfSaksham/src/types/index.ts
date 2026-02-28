@@ -20,6 +20,13 @@ export interface JobPlatform {
   isTip?: boolean;
 }
 
+export interface GovtScheme {
+  name: string;
+  benefit: string;
+  eligibility: string;
+  url: string;
+}
+
 export interface TranscribeResponse {
   transcript: string;
   careers: Career[];
