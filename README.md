@@ -35,13 +35,16 @@
   - 12th/College → LinkedIn, Apna App, Upwork, Fiverr
 - [x] **Direct Registration Links** — No landing pages — straight to register/apply
 - [x] **WhatsApp Tip Card** — Actionable local networking advice (no broken link)
-- [x] **Govt Schemes Tool** — PMKVY, PM Vishwakarma, MUDRA Loan, Skill India, SVANidhi
+- [x] **Govt Schemes** — Gemini-powered real-time career-specific scheme suggestions
+- [x] **Govt Schemes UI** — Yellow card section in Step 2, agent-triggered via voice
 
 ### Multi-Language Support
 - [x] **4 Languages** — Hindi, Tamil, Telugu, Marathi
+- [x] **Full UI Translation** — All strings translated in all 4 languages (translations.ts)
 - [x] **Language-aware STT** — Correct language code per selection
 - [x] **Language-aware TTS** — Chirp3-HD voices per language (Aoede voice)
 - [x] **Agent responds in chosen language** — System prompt enforced
+- [x] **Govt Schemes in chosen language** — Scheme names, benefits, eligibility translated
 - [x] **Language persisted** — localStorage saves preference across sessions
 
 ### Onboarding Voice Flow
@@ -56,9 +59,10 @@
 ### Frontend
 - [x] **3-Step Wizard** — Record → Choose Career → Courses & Jobs
 - [x] **AgentChat Component** — Voice-first chat with 4 mic states (idle/recording/thinking/speaking)
-- [x] **UI Highlight** — Courses/jobs section highlights + scrolls when agent triggers
+- [x] **UI Highlight** — Courses/jobs/schemes sections highlight + scroll when agent triggers
 - [x] **Dark/Light Mode** — Full theme support
 - [x] **Language Dropdown** — Native script labels (हिंदी, தமிழ், తెలుగు, मराठी)
+- [x] **Custom Logo** — Woman silhouette logo in header
 - [x] **Responsive Design** — Mobile-friendly
 
 ### Auth & Data
@@ -74,7 +78,6 @@
 
 ## 🔧 In Progress / Partially Done
 
-- [ ] **Govt Schemes Frontend Section** — `get_govt_schemes` tool works, UI section not built yet
 - [ ] **Interrupt Handling** — User can't interrupt agent mid-speech cleanly
 - [ ] **Mongoose Deprecation Warnings** — `new: true` → `returnDocument: 'after'` fix pending
 
@@ -83,7 +86,6 @@
 ## ❌ Not Yet Built
 
 ### Features
-- [ ] **Govt Schemes UI** — Frontend section to display schemes returned by agent
 - [ ] **"More Careers" Button** — `getMoreCareers` tool exists but no UI trigger
 - [ ] **Course Level Selection UI** — User tells agent verbally, no visual selector
 - [ ] **Progress Tracking** — Mark courses completed, track learning journey
@@ -154,6 +156,8 @@ Career-Guide/
         ├── contexts/
         │   ├── LanguageContext.tsx  # 4-language support
         │   └── ThemeContext.tsx
+        ├── i18n/
+        │   └── translations.ts     # All UI strings in 4 languages
         └── types/
             └── index.ts
 ```
@@ -172,7 +176,14 @@ GCP_CREDENTIALS_JSON={"type":"service_account",...}
 YOUTUBE_API_KEY=your-youtube-api-key
 CLERK_SECRET_KEY=sk_...
 FRONTEND_URLS=http://localhost:5173,https://yourdomain.com
-PYTHON_AGENT_URL=http://127.0.0.1:8000
+PYTHON_AGENT_URL=http://localhost:8000
+```
+
+### Agent Service (`career-guide-backend/agent_service/.env`)
+
+```env
+GOOGLE_PROJECT_ID=your-gcp-project-id
+GCP_CREDENTIALS_JSON={"type":"service_account",...}
 ```
 
 ### Frontend (`FRONTENDOFSAKSHAM/.env`)
@@ -204,16 +215,16 @@ npm run dev
 ## 📊 Progress Overview
 
 ```
-Overall Completion: ~88%
+Overall Completion: ~93%
 
 Core Voice Pipeline    ████████████████████  100%
 AI Agent (LangGraph)   ████████████████████  100%
-Multi-Language         ████████████████████  100%
+Multi-Language (4)     ████████████████████  100%
 Onboarding Flow        ████████████████████  100%
 Smart Job Filtering    ████████████████████  100%
-Frontend UI            ██████████████████░░   90%
+Govt Schemes           ████████████████████  100%
+Frontend UI            ████████████████████  100%
 Auth + Data            ██████████████████░░   90%
-Govt Schemes UI        ████░░░░░░░░░░░░░░░░   20%
 AWS Migration          ░░░░░░░░░░░░░░░░░░░░    0%
 Deployment             ░░░░░░░░░░░░░░░░░░░░    0%
 ```
