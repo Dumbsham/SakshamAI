@@ -176,16 +176,41 @@ def get_govt_schemes(career: str, education_level: str = "any", language: str = 
     ]
     return {"schemes": fallback, "action": "show_schemes"}
 
+<<<<<<< HEAD
 
 @tool
 def trigger_ui_action(action: str, url: str = None) -> dict:
+=======
+PLATFORM_URLS = {
+    "linkedin": "https://www.linkedin.com",
+    "upwork": "https://www.upwork.com",
+    "fiverr": "https://www.fiverr.com",
+    "naukri": "https://www.naukri.com",
+    "internshala": "https://internshala.com",
+    "freelancer": "https://www.freelancer.in",
+    "apna": "https://apna.co",
+    "workindia": "https://www.workindia.in",
+    "meesho": "https://supplier.meesho.com",
+    "urban company": "https://professionals.urbancompany.com",
+    "justdial": "https://www.justdial.com",
+    "udemy": "https://www.udemy.com",
+    "youtube": "https://www.youtube.com",
+}
+
+@tool  
+def trigger_ui_action(action: str, url: str = None, platform: str = None) -> dict:
+>>>>>>> 3afa6946910e3c0d6e731f4dd773c69308ccf98e
     """
     Trigger a UI action on the frontend.
     Args:
         action: scroll_to_courses | scroll_to_jobs | scroll_to_schemes | open_url
-        url: URL to open (only for open_url)
+        url: URL to open (only for open_url action)
+        platform: Platform name to open (e.g. 'LinkedIn', 'Upwork') — used to resolve URL if url is not provided
     """
-    return {"triggered": True, "action": action, "url": url}
+    resolved_url = url
+    if action == "open_url" and not url and platform:
+        resolved_url = PLATFORM_URLS.get(platform.lower().strip())
+    return {"triggered": True, "action": action, "url": resolved_url}
 
 
 @tool
