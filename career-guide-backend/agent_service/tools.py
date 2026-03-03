@@ -5,6 +5,7 @@ from langchain_core.tools import tool
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
+
 def _youtube_search(career: str, language: str = "hindi", level: str = "beginner") -> list:
     lang_queries = {
         "hindi": f"{career} सीखें {level}",
@@ -14,12 +15,6 @@ def _youtube_search(career: str, language: str = "hindi", level: str = "beginner
         "english": f"learn {career} {level} tutorial"
     }
     query = lang_queries.get(language, f"learn {career}")
-    try:
-        youtube = build("googleapiclient", "v3", developerKey=YOUTUBE_API_KEY)
-        # Fallback — direct URL since youtube API needs special setup
-    except:
-        pass
-    
     q = urllib.parse.quote(query)
     return [
         {
@@ -36,6 +31,7 @@ def _youtube_search(career: str, language: str = "hindi", level: str = "beginner
         }
     ]
 
+
 @tool
 def get_filtered_courses(career: str, language: str = "hindi", level: str = "beginner") -> dict:
     """
@@ -47,6 +43,7 @@ def get_filtered_courses(career: str, language: str = "hindi", level: str = "beg
     """
     courses = _youtube_search(career, language, level)
     return {"courses": courses, "action": "show_courses"}
+
 
 @tool
 def get_filtered_jobs(career: str, job_type: str = "local", education_level: str = "padha nahi") -> dict:
@@ -63,11 +60,6 @@ def get_filtered_jobs(career: str, job_type: str = "local", education_level: str
                     "tip": f"Apne 10 contacts ko message karo: 'Main {career} ka kaam karti hoon'. Pehla customer wahi se milega!",
                     "isTip": True}
 
-    # Education-based platform logic
-    # padha nahi / 5th tak → only hyper-local, no-literacy platforms
-    # 10th tak → local + some freelance
-    # 12th/college → all platforms including professional
-
     if education_level in ("padha nahi", "5th tak"):
         platforms = [
             {"name": "Apna App", "url": f"https://apna.co/jobs?query={q}", "type": "local",
@@ -78,7 +70,6 @@ def get_filtered_jobs(career: str, job_type: str = "local", education_level: str
              "tip": "Beauty, cooking, cleaning — ghar se kaam karo", "isTip": False},
             whatsapp_tip,
         ]
-
     elif education_level == "10th tak":
         platforms = [
             {"name": "Apna App", "url": f"https://apna.co/jobs?query={q}", "type": "local",
@@ -91,8 +82,7 @@ def get_filtered_jobs(career: str, job_type: str = "local", education_level: str
              "tip": "Ghar se reselling — koi investment nahi", "isTip": False},
             whatsapp_tip,
         ]
-
-    else:  # 12th/college
+    else:
         if job_type == "freelance":
             platforms = [
                 {"name": "Upwork", "url": "https://www.upwork.com/freelancer/registration", "type": "freelance",
@@ -117,6 +107,7 @@ def get_filtered_jobs(career: str, job_type: str = "local", education_level: str
 
     return {"platforms": platforms, "action": "show_jobs"}
 
+
 @tool
 def get_govt_schemes(career: str, education_level: str = "any", language: str = "hindi") -> dict:
     """
@@ -129,15 +120,12 @@ def get_govt_schemes(career: str, education_level: str = "any", language: str = 
     import re
     from langchain_google_vertexai import ChatVertexAI
     from google.oauth2 import service_account
-    import google.auth
 
     try:
         creds_dict = json.loads(os.getenv("GCP_CREDENTIALS_JSON"))
         credentials = service_account.Credentials.from_service_account_info(
-            creds_dict,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            creds_dict, scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
-
         llm = ChatVertexAI(
             model="gemini-2.0-flash-001",
             project=os.getenv("GOOGLE_PROJECT_ID"),
@@ -145,14 +133,13 @@ def get_govt_schemes(career: str, education_level: str = "any", language: str = 
             credentials=credentials,
             temperature=0.1,
         )
-
         lang_instruction = {
-        "hindi": "Respond with name, benefit, eligibility fields in Hindi language",
-        "tamil": "Respond with name, benefit, eligibility fields in Tamil language",
-        "telugu": "Respond with name, benefit, eligibility fields in Telugu language",
-        "marathi": "Respond with name, benefit, eligibility fields in Marathi language",
-        "english": "Respond with name, benefit, eligibility fields in English",
-    }.get(language, "Respond in Hindi")
+            "hindi": "Respond with name, benefit, eligibility fields in Hindi language",
+            "tamil": "Respond with name, benefit, eligibility fields in Tamil language",
+            "telugu": "Respond with name, benefit, eligibility fields in Telugu language",
+            "marathi": "Respond with name, benefit, eligibility fields in Marathi language",
+            "english": "Respond with name, benefit, eligibility fields in English",
+        }.get(language, "Respond in Hindi")
 
         prompt = (
             "You are an expert on Indian government schemes for women.\n"
@@ -167,11 +154,9 @@ def get_govt_schemes(career: str, education_level: str = "any", language: str = 
             "mudra.org.in, startupindia.gov.in, skillindiadigital.gov.in\n"
             f"Focus on schemes most relevant to {career} profession."
         )
-
         from langchain_core.messages import HumanMessage
         response = llm.invoke([HumanMessage(content=prompt)])
         text = response.content
-
         json_match = re.search(r'\[.*?\]', text, re.DOTALL)
         if json_match:
             schemes = json.loads(json_match.group())
@@ -179,16 +164,20 @@ def get_govt_schemes(career: str, education_level: str = "any", language: str = 
     except Exception as e:
         print(f"Gemini schemes error: {e}")
 
-    # Fallback — universal schemes
     fallback = [
-        {"name": "PM Kaushal Vikas Yojana (PMKVY)", "benefit": "Free skill training + certificate + ₹8,000 reward", "eligibility": "Open to all", "url": "https://www.pmkvyofficial.org"},
-        {"name": "MUDRA Loan - Shishu", "benefit": "Up to ₹50,000 loan without collateral", "eligibility": "Anyone starting small business", "url": "https://www.mudra.org.in"},
-        {"name": "Skill India Digital", "benefit": "Free online courses in 500+ skills", "eligibility": "Open to all", "url": "https://www.skillindiadigital.gov.in"},
-        {"name": "Startup India - Women", "benefit": "Mentorship + funding access + business support", "eligibility": "Women entrepreneurs", "url": "https://www.startupindia.gov.in"},
+        {"name": "PM Kaushal Vikas Yojana (PMKVY)", "benefit": "Free skill training + certificate + ₹8,000 reward",
+         "eligibility": "Open to all", "url": "https://www.pmkvyofficial.org"},
+        {"name": "MUDRA Loan - Shishu", "benefit": "Up to ₹50,000 loan without collateral",
+         "eligibility": "Anyone starting small business", "url": "https://www.mudra.org.in"},
+        {"name": "Skill India Digital", "benefit": "Free online courses in 500+ skills",
+         "eligibility": "Open to all", "url": "https://www.skillindiadigital.gov.in"},
+        {"name": "Startup India - Women", "benefit": "Mentorship + funding access + business support",
+         "eligibility": "Women entrepreneurs", "url": "https://www.startupindia.gov.in"},
     ]
     return {"schemes": fallback, "action": "show_schemes"}
 
-@tool  
+
+@tool
 def trigger_ui_action(action: str, url: str = None) -> dict:
     """
     Trigger a UI action on the frontend.
@@ -198,4 +187,115 @@ def trigger_ui_action(action: str, url: str = None) -> dict:
     """
     return {"triggered": True, "action": action, "url": url}
 
-ALL_TOOLS = [get_filtered_courses, get_filtered_jobs, get_govt_schemes, trigger_ui_action]
+
+@tool
+def browse_website(task: str, url: str) -> dict:
+    """
+    Open a website and perform actions like searching jobs, signing up, logging in, or applying.
+    ALWAYS call this when user wants to open/apply/register/signup/login on any website.
+    DO NOT ask user for URL — use these known URLs:
+    - LinkedIn jobs → https://www.linkedin.com/jobs/search/?keywords=<career>
+    - LinkedIn login → https://www.linkedin.com/login
+    - Apna App → https://apna.co
+    - PMKVY → https://www.pmkvyofficial.org
+    - Urban Company → https://professionals.urbancompany.com/register
+    - WorkIndia → https://www.workindia.in
+    - Upwork → https://www.upwork.com/nx/find-work/
+    - Fiverr → https://www.fiverr.com/start_selling
+
+    Args:
+        task: What to do, e.g. 'search web developer jobs in Delhi on LinkedIn and apply'
+        url: Starting URL for the task
+    """
+    import subprocess
+    import sys
+    import tempfile
+    import json as _json
+    import os as _os
+
+    task_data = {"task": task, "url": url, "max_steps": 12}
+
+    # Check if we have stored credentials for this site
+    from browser import _detect_site, _get_stored_credentials
+    site_key = _detect_site(url)
+    if site_key:
+        stored_creds = _get_stored_credentials(site_key)
+        if stored_creds:
+            task_data["credentials"] = stored_creds
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        _json.dump(task_data, f)
+        task_file = f.name
+
+    result_file = task_file.replace('.json', '_result.json')
+
+    try:
+        script_dir = _os.path.dirname(_os.path.abspath(__file__))
+        runner = _os.path.join(script_dir, 'browser_runner.py')
+
+        proc = subprocess.run(
+            [sys.executable, runner, task_file, result_file],
+            timeout=300,  # 5 min for complex flows like login+search+apply
+            capture_output=True,
+            text=True
+        )
+
+        print(f"Browser stdout: {proc.stdout[-500:] if proc.stdout else 'none'}")
+        if proc.stderr:
+            print(f"Browser stderr: {proc.stderr[-500:]}")
+
+        if _os.path.exists(result_file):
+            with open(result_file) as f:
+                result = _json.load(f)
+
+            # If browser needs credentials, surface that to the agent
+            if result.get("needs_credentials"):
+                return {
+                    "action": "needs_credentials",
+                    "site": result.get("site", "unknown"),
+                    "site_name": result.get("site_name", "this website"),
+                    "login_url": result.get("login_url"),
+                    "signup_url": result.get("signup_url"),
+                    "screenshot": result.get("screenshot"),
+                    "summary": result.get("summary"),
+                }
+
+            # If browser needs human intervention (CAPTCHA, OTP, complex form)
+            if result.get("needs_human"):
+                return {
+                    "action": "open_url",
+                    "url": result.get("open_url", url),
+                    "reason": result.get("reason", "manual_needed"),
+                    "screenshot": result.get("screenshot"),
+                    "summary": result.get("summary"),
+                    "steps": result.get("steps", []),
+                }
+
+            return {
+                "action": "browser_result",
+                "success": result.get("success", False),
+                "steps": result.get("steps", []),
+                "screenshot": result.get("screenshot"),
+                "summary": result.get("summary", "Task completed"),
+                "final_url": result.get("final_url"),
+            }
+        else:
+            return {
+                "action": "browser_result",
+                "success": False,
+                "summary": f"Browser runner did not produce output. stderr: {proc.stderr[-200:] if proc.stderr else 'none'}",
+            }
+    except subprocess.TimeoutExpired:
+        return {"action": "open_url", "url": url, "summary": "Browser timed out. Opening the page for you."}
+    except Exception as e:
+        print(f"Browser tool error: {e}")
+        return {"action": "open_url", "url": url, "summary": f"Browser error: {str(e)}. Opening the page for you."}
+    finally:
+        for f_path in [task_file, result_file]:
+            try:
+                _os.unlink(f_path)
+            except Exception:
+                pass
+
+
+ALL_TOOLS = [get_filtered_courses, get_filtered_jobs, get_govt_schemes, trigger_ui_action, browse_website]

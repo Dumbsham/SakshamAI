@@ -97,7 +97,7 @@ def make_llm():
         project=GOOGLE_PROJECT_ID,
         location="us-central1",
         credentials=credentials,
-        temperature=0.1,  # lower = more deterministic tool calling
+        temperature=0.1,
     ).bind_tools(ALL_TOOLS, tool_choice="auto")
 
 def agent_node(state: AgentState):
@@ -124,8 +124,26 @@ CRITICAL TOOL RULES — you MUST call tools, NEVER just describe what you will d
 
 4. User says koi website/link/kholo → call trigger_ui_action(action="open_url", url="<url>")
 
+5. User says ANYTHING about opening/applying/registering/login/signup on a website → IMMEDIATELY call browse_website. NEVER ask for URL. Use these URLs:
+   - LinkedIn jobs → url="https://www.linkedin.com/jobs/search/?keywords={selected_career}"
+   - LinkedIn login → url="https://www.linkedin.com/login"
+   - Apna App → url="https://apna.co"
+   - PMKVY → url="https://www.pmkvyofficial.org"
+   - Urban Company → url="https://professionals.urbancompany.com/register"
+   - WorkIndia → url="https://www.workindia.in"
+   - Upwork → url="https://www.upwork.com/nx/find-work/"
+   - Fiverr → url="https://www.fiverr.com/start_selling"
+   RULE: NEVER say "please give me URL" — just call browse_website immediately.
+
+6. After browse_website returns:
+   - If action="needs_credentials" → tell user in {language}: "Is website pe login karna hoga. Apna email aur password chat mein bhejo, main login karwa dungi." Then call trigger_ui_action(action="show_credentials_form", url=login_url)
+   - If action="open_url" → tell user the page is opening and call trigger_ui_action(action="open_url", url=<the_url>)
+   - If action="browser_result" and success=true → tell user the task is done!
+   - If screenshot is available → tell user you can see the page
+
+7. User provides email/password for a site → call browse_website again with the original task, including credentials.
+
 IMPORTANT: After calling tools, give a SHORT confirmation in {language} — do NOT list the results yourself, they are shown in UI automatically.
-Example: User says "jobs dikhao" → call get_filtered_jobs → call trigger_ui_action → then say "Jobs screen pe dikh rahi hain! 👆"
 """
 
     messages = [SystemMessage(content=system_content)]
@@ -161,10 +179,32 @@ def tool_node_with_state(state: AgentState):
                 if "schemes" in data:
                     new_schemes = data["schemes"]
                 if data.get("action"):
-                    new_ui_actions.append({
+                    action_entry = {
                         "action": data["action"],
-                        "url": data.get("url")
-                    })
+                        "url": data.get("url"),
+                    }
+                    # Preserve browser-specific fields
+                    if data.get("screenshot"):
+                        action_entry["screenshot"] = data["screenshot"]
+                    if data.get("summary"):
+                        action_entry["summary"] = data["summary"]
+                    if data.get("steps"):
+                        action_entry["steps"] = data["steps"]
+                    if data.get("success") is not None:
+                        action_entry["success"] = data["success"]
+                    if data.get("site"):
+                        action_entry["site"] = data["site"]
+                    if data.get("site_name"):
+                        action_entry["site_name"] = data["site_name"]
+                    if data.get("login_url"):
+                        action_entry["login_url"] = data["login_url"]
+                    if data.get("signup_url"):
+                        action_entry["signup_url"] = data["signup_url"]
+                    if data.get("reason"):
+                        action_entry["reason"] = data["reason"]
+                    if data.get("final_url"):
+                        action_entry["final_url"] = data["final_url"]
+                    new_ui_actions.append(action_entry)
             except Exception as e:
                 print(f"Tool parse error: {e}")
 
@@ -226,6 +266,20 @@ def run_agent(
         education_level=education_level,
     ))
 
+    # DEBUG
+    print("\n========== AGENT DEBUG ==========")
+    for msg in result["messages"]:
+        print(f"MSG TYPE: {type(msg).__name__}")
+        if hasattr(msg, 'tool_calls') and msg.tool_calls:
+            print(f"  TOOL CALLS: {msg.tool_calls}")
+        if hasattr(msg, 'content') and msg.content:
+            print(f"  CONTENT: {str(msg.content)[:200]}")
+    print(f"COURSES: {len(result.get('courses', []))} items")
+    print(f"JOBS: {len(result.get('jobs', []))} items")
+    print(f"SCHEMES: {len(result.get('schemes', []))} items")
+    print(f"UI ACTIONS: {json.dumps(result.get('ui_actions', []), default=str)[:500]}")
+    print("==================================\n")
+
     ai_messages = [m for m in result["messages"] if isinstance(m, AIMessage) and not getattr(m, 'tool_calls', None)]
     final_text = ai_messages[-1].content if ai_messages else ""
 
@@ -242,13 +296,43 @@ def run_agent(
     ]
 
     ui_actions = result.get("ui_actions", [])
-    first_action = ui_actions[0] if ui_actions else {}
+
+    # Find the most relevant action to surface
+    # Priority: needs_credentials > browser_result > open_url > scroll/show actions
+    primary_action = {}
+    for action in ui_actions:
+        act = action.get("action", "")
+        if act == "needs_credentials":
+            primary_action = action
+            break
+        elif act == "browser_result":
+            primary_action = action
+            break
+        elif act == "open_url" and not primary_action.get("action"):
+            primary_action = action
+        elif not primary_action.get("action"):
+            primary_action = action
+
+    if not primary_action and ui_actions:
+        primary_action = ui_actions[0]
 
     return {
         "message": final_text,
         "audio": audio_base64,
-        "action": first_action.get("action"),
-        "actionPayload": {"url": first_action.get("url")} if first_action.get("url") else None,
+        "action": primary_action.get("action"),
+        "actionPayload": {
+            "url": primary_action.get("url"),
+            "screenshot": primary_action.get("screenshot"),
+            "summary": primary_action.get("summary"),
+            "site": primary_action.get("site"),
+            "site_name": primary_action.get("site_name"),
+            "login_url": primary_action.get("login_url"),
+            "signup_url": primary_action.get("signup_url"),
+            "reason": primary_action.get("reason"),
+            "success": primary_action.get("success"),
+            "final_url": primary_action.get("final_url"),
+            "steps": primary_action.get("steps"),
+        } if primary_action else None,
         "history": new_history,
         "courses": result.get("courses", []),
         "jobs": result.get("jobs", []),

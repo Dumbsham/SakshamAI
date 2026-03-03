@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agent import run_agent, transcribe, speak
+from browser import save_credentials
 
 app = FastAPI(title="Saksham Agent Service")
 
@@ -26,7 +27,7 @@ app.add_middleware(
 def health():
     return {"status": "ok", "service": "Saksham LangGraph Agent"}
 
-# ── Transcribe audio ─────────────────────────────────────────────
+# ── Transcribe audio ────────────────────���────────────────────────
 @app.post("/transcribe")
 async def transcribe_audio(
     audio: UploadFile = File(...),
@@ -70,6 +71,24 @@ async def chat(req: ChatRequest):
         return result
     except Exception as e:
         print(f"Agent error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ── Save credentials for a site ──────────────────────────────────
+class CredentialsRequest(BaseModel):
+    site: str          # e.g. "linkedin", "apna", "workindia"
+    email: str
+    password: str
+
+@app.post("/credentials")
+async def save_site_credentials(req: CredentialsRequest):
+    """
+    Save login credentials for a site so browser agent can login automatically.
+    Called from frontend when user provides email/password after being prompted.
+    """
+    try:
+        save_credentials(req.site, req.email, req.password)
+        return {"status": "saved", "site": req.site}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── TTS only ─────────────────────────────────────────────────────

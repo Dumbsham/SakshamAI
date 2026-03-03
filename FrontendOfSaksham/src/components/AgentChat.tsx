@@ -31,6 +31,9 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
   const [statusText, setStatusText] = useState('Mic dabao aur bolo...');
   const [autoListen, setAutoListen] = useState(true);
   const [interrupted, setInterrupted] = useState(false);
+  const [browserSteps, setBrowserSteps] = useState<{step: number, description: string, result: string}[]>([]);
+  const [browserScreenshot, setBrowserScreenshot] = useState<string | null>(null);
+  const [browserRunning, setBrowserRunning] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -164,6 +167,14 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
       if (data.jobs?.length > 0 && onJobsUpdate) onJobsUpdate(data.jobs);
       if (data.schemes?.length > 0 && onSchemesUpdate) onSchemesUpdate(data.schemes);
 
+      // Browser automation result
+      if (data.browserResult) {
+        setBrowserSteps(data.browserResult.steps || []);
+        if (data.browserResult.screenshot) setBrowserScreenshot(data.browserResult.screenshot);
+        setBrowserRunning(false);
+      }
+      if (data.browserRunning) setBrowserRunning(true);
+
       if (data.allUiActions?.length > 0 && onAction) {
         data.allUiActions.forEach((a: any) => onAction(a.action, a.url ? { url: a.url } : undefined));
       } else if (data.action && onAction) {
@@ -277,6 +288,47 @@ export function AgentChat({ selectedCareer, transcript, courses = [], jobs = [],
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Browser automation live steps */}
+        {browserRunning && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2 font-outfit">🌐 Browser Agent Working...</p>
+            {browserSteps.map((s, i) => (
+              <p key={i} className="text-xs text-gray-600 dark:text-gray-400 font-outfit">
+                {i + 1}. {s.description}
+              </p>
+            ))}
+            <div className="flex gap-1 mt-2">
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+          </div>
+        )}
+
+        {/* Browser result — steps + screenshot */}
+        {!browserRunning && browserSteps.length > 0 && (
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 font-outfit">🌐 Browser completed {browserSteps.length} steps</p>
+            <div className="space-y-1">
+              {browserSteps.map((s, i) => (
+                <p key={i} className="text-xs text-gray-600 dark:text-gray-400 font-outfit">
+                  ✓ {s.description}
+                </p>
+              ))}
+            </div>
+            {browserScreenshot && (
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-outfit">Final screenshot:</p>
+                <img
+                  src={`data:image/png;base64,${browserScreenshot}`}
+                  alt="Browser screenshot"
+                  className="w-full rounded-lg border border-black/10 dark:border-white/10"
+                />
+              </div>
+            )}
           </div>
         )}
         {interrupted && (

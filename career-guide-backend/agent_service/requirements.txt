@@ -1,0 +1,15 @@
+# Existing deps
+langchain-google-vertexai
+langchain-core
+langgraph
+google-cloud-texttospeech
+google-cloud-speech
+google-auth
+python-dotenv
+fastapi
+uvicorn
+python-multipart
+pydantic
+
+# New deps for browser automation
+playwright
