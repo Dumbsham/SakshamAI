@@ -176,11 +176,6 @@ def get_govt_schemes(career: str, education_level: str = "any", language: str = 
     ]
     return {"schemes": fallback, "action": "show_schemes"}
 
-<<<<<<< HEAD
-
-@tool
-def trigger_ui_action(action: str, url: str = None) -> dict:
-=======
 PLATFORM_URLS = {
     "linkedin": "https://www.linkedin.com",
     "upwork": "https://www.upwork.com",
@@ -199,7 +194,6 @@ PLATFORM_URLS = {
 
 @tool  
 def trigger_ui_action(action: str, url: str = None, platform: str = None) -> dict:
->>>>>>> 3afa6946910e3c0d6e731f4dd773c69308ccf98e
     """
     Trigger a UI action on the frontend.
     Args:
