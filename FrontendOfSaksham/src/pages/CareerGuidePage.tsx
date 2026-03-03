@@ -160,7 +160,11 @@ export function CareerGuidePage() {
         setTimeout(() => setHighlightSection(null), 2500);
         break;
       case 'open_url':
-        if (payload?.url) window.open(payload.url, '_blank');
+        if (payload?.url) {
+          window.open(payload.url, '_blank');
+        } else {
+          console.warn('open_url action received without a URL:', payload);
+        }
         break;
       default:
         break;

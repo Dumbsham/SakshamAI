@@ -122,7 +122,11 @@ CRITICAL TOOL RULES — you MUST call tools, NEVER just describe what you will d
 
 3. User says schemes/yojana/sarkar/madad/loan/government → IMMEDIATELY call get_govt_schemes(career="{selected_career}", language="{language}"), THEN call trigger_ui_action(action="scroll_to_schemes")
 
-4. User says koi website/link/kholo → call trigger_ui_action(action="open_url", url="<url>")
+4. User says "LinkedIn kholo" / "open LinkedIn" → call trigger_ui_action(action="open_url", platform="LinkedIn")
+   User says "Upwork kholo" / "open Upwork" → call trigger_ui_action(action="open_url", platform="Upwork")
+   User says "Fiverr kholo" / "open Fiverr" → call trigger_ui_action(action="open_url", platform="Fiverr")
+   User says any "[platform] kholo" / "open [platform]" → call trigger_ui_action(action="open_url", platform="[platform name, case-insensitive]")
+   Supported platforms: LinkedIn, Upwork, Fiverr, Naukri, Internshala, Freelancer, Apna, WorkIndia, Meesho, Urban Company, JustDial, Udemy, YouTube
 
 IMPORTANT: After calling tools, give a SHORT confirmation in {language} — do NOT list the results yourself, they are shown in UI automatically.
 Example: User says "jobs dikhao" → call get_filtered_jobs → call trigger_ui_action → then say "Jobs screen pe dikh rahi hain! 👆"
